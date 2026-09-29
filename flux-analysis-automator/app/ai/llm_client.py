@@ -25,6 +25,11 @@ class LLMClient:
             if provider == "gemini":
                 payload, model_name, ver = self._gemini(prompt, context)
                 return payload, model_name, ver
+            if provider == "groq":
+                payload, model_name, ver = self._openai(
+                    prompt, base_url="https://api.groq.com/openai/v1"
+                )
+                return payload, model_name, ver
             payload, model_name, ver = self._openai(prompt)
             return payload, model_name, ver
         except Exception as exc:
@@ -33,11 +38,14 @@ class LLMClient:
             fallback["drivers"] = ["LLM unavailable — template narrative used"]
             return fallback, "template-fallback", PROMPT_VERSION
 
-    def _openai(self, user_prompt: str) -> tuple[dict[str, Any], str, str]:
+    def _openai(self, user_prompt: str, base_url: str | None = None) -> tuple[dict[str, Any], str, str]:
         from openai import OpenAI
 
         settings = get_settings()
-        client = OpenAI(api_key=settings.resolved_llm_api_key())
+        client_kwargs = {"api_key": settings.resolved_llm_api_key()}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        client = OpenAI(**client_kwargs)
         resp = client.chat.completions.create(
             model=settings.llm_model,
             messages=[

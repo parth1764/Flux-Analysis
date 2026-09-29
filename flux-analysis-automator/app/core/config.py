@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o-mini"
     openai_api_key: str = ""
     gemini_api_key: str = ""
+    groq_api_key: str = ""
 
     sec_user_agent: str = "FluxAnalysisAutomator contact@example.com"
 
@@ -32,7 +33,7 @@ class Settings(BaseSettings):
         }
 
     def resolved_llm_api_key(self) -> str:
-        return self.llm_api_key or self.openai_api_key or self.gemini_api_key
+        return self.llm_api_key or self.groq_api_key or self.openai_api_key or self.gemini_api_key
 
 
 @lru_cache
