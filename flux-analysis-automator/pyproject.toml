@@ -1,0 +1,15 @@
+[project]
+name = "flux-analysis-automator"
+version = "0.1.0"
+description = "Automated financial flux analysis with validated AI explanations"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

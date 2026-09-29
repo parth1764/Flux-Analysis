@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flux Analysis</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #eef2f6;
+      --card: #ffffff;
+      --ink: #122033;
+      --muted: #5d6d7e;
+      --line: #e4ebf2;
+      --navy: #0c2340;
+      --gold: #c4a35a;
+      --up: #157a45;
+      --down: #c0392b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background:
+        radial-gradient(900px 280px at 100% -10%, rgba(196, 163, 90, 0.18), transparent 50%),
+        var(--bg);
+      color: var(--ink);
+    }
+    header {
+      background: linear-gradient(120deg, #071525 0%, var(--navy) 55%, #16375c 100%);
+      color: #fff;
+      padding: 22px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 3px solid var(--gold);
+    }
+    header h1 { margin: 0; font-size: 1.45rem; letter-spacing: -0.02em; }
+    header p { margin: 6px 0 0; color: #c5d2e0; font-size: 0.92rem; }
+    header button {
+      background: var(--gold);
+      color: #1a1408;
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .live {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #d7e4f0;
+      font-size: 0.85rem;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #3dd68c;
+      box-shadow: 0 0 0 0 rgba(61, 214, 140, 0.7);
+      animation: pulse 1.6s infinite;
+    }
+    @keyframes pulse {
+      70% { box-shadow: 0 0 0 8px rgba(61, 214, 140, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(61, 214, 140, 0); }
+    }
+    main { padding: 22px 28px 48px; max-width: 1240px; margin: 0 auto; }
+    .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+    .kpi {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 24px rgba(12, 35, 64, 0.06);
+      border-top: 3px solid var(--navy);
+    }
+    .kpi span { display: block; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .kpi strong { display: block; margin-top: 8px; font-size: 1.7rem; }
+    .grid { display: grid; grid-template-columns: 1.4fr 0.8fr; gap: 14px; margin-top: 16px; }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 16px 16px 8px;
+      box-shadow: 0 8px 24px rgba(12, 35, 64, 0.06);
+    }
+    .card h2, section h2 { margin: 0 0 8px; font-size: 1rem; }
+    .chart-box { position: relative; height: 320px; }
+    .chart-box.short { height: 280px; }
+    section { margin-top: 16px; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+    select, button.small {
+      font: inherit;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    button.small { cursor: pointer; margin-right: 4px; }
+    button.small.danger { color: var(--down); }
+    .panel { background: var(--card); border-radius: 12px; overflow: auto; box-shadow: 0 8px 24px rgba(12, 35, 64, 0.06); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .pos { color: var(--up); font-weight: 650; }
+    .neg { color: var(--down); font-weight: 650; }
+    .tag { font-size: 0.75rem; color: var(--muted); }
+    .explain { max-width: 340px; color: #3d4d5c; }
+    .error { color: var(--down); }
+    .pipeline { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    .stage {
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      border: 1px solid var(--line);
+    }
+    .stage.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+    #feed { max-height: 180px; overflow: auto; font-size: 0.86rem; }
+    #feed div { padding: 7px 2px; border-bottom: 1px solid var(--line); }
+    #feed strong { color: var(--navy); }
+    @media (max-width: 980px) {
+      .kpis, .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Flux Analysis Automator</h1>
+      <p>Each cycle calls the API, then reruns compare, materiality, and validation.</p>
+    </div>
+    <div class="live"><span class="dot"></span><span id="live-label">Connecting</span></div>
+  </header>
+  <main>
+    <div class="pipeline" id="pipeline">
+      <span class="stage" data-stage="Fetch">1 · Fetch API</span>
+      <span class="stage" data-stage="Compare">2 · Compare</span>
+      <span class="stage" data-stage="Materiality">3 · Materiality</span>
+      <span class="stage" data-stage="Validate">4 · Validate</span>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <section class="card">
+      <h2>Continuous analysis</h2>
+      <div id="feed"></div>
+    </section>
+    <div class="grid">
+      <div class="card">
+        <h2>Live percent change</h2>
+        <div class="chart-box"><canvas id="changeChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Review status</h2>
+        <div class="chart-box short"><canvas id="statusChart"></canvas></div>
+      </div>
+    </div>
+    <section class="card">
+      <div class="toolbar">
+        <h2>Live dollar variance</h2>
+        <select id="bank"></select>
+      </div>
+      <div class="chart-box"><canvas id="waterfallChart"></canvas></div>
+    </section>
+    <section>
+      <h2>Needs a controller</h2>
+      <div class="panel" id="table-wrap"></div>
+    </section>
+    <p id="status"></p>
+  </main>
+  <script>
+    const charts = {};
+    const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    const money = (n) => {
+      if (n == null || Number.isNaN(Number(n))) return "—";
+      const sign = n < 0 ? "-" : "";
+      const a = Math.abs(n);
+      if (a >= 1e9) return sign + "$" + (a / 1e9).toFixed(2) + "B";
+      if (a >= 1e6) return sign + "$" + (a / 1e6).toFixed(1) + "M";
+      return sign + "$" + Math.round(a).toLocaleString();
+    };
+    const pct = (n) => (n == null ? "—" : (n >= 0 ? "+" : "") + Number(n).toFixed(1) + "%");
+
+    let latest = null;
+
+    function draw(id, config) {
+      if (charts[id]) {
+        charts[id].data.labels = config.data.labels;
+        charts[id].data.datasets[0].data = config.data.datasets[0].data;
+        charts[id].data.datasets[0].backgroundColor = config.data.datasets[0].backgroundColor;
+        charts[id].update();
+        return;
+      }
+      charts[id] = new Chart(document.getElementById(id), config);
+    }
+
+    function render(payload) {
+      if (!payload || payload.error) {
+        document.getElementById("status").textContent = payload && payload.error ? payload.error : "Stream error";
+        document.getElementById("status").className = "error";
+        return;
+      }
+      latest = payload;
+      const summary = payload.summary;
+      const changes = payload.changes || [];
+      document.getElementById("live-label").textContent = "Analysing · " + (payload.ts || "").replace("T", " ").replace("+00:00", " UTC");
+      const stages = payload.analysis || [];
+      document.querySelectorAll("#pipeline .stage").forEach((el) => {
+        el.classList.toggle("on", stages.length > 0);
+      });
+      const feed = document.getElementById("feed");
+      const block = document.createElement("div");
+      block.innerHTML = stages.map((step) => `<div><strong>${esc(step.stage)}</strong> · ${esc(step.detail)}</div>`).join("");
+      feed.prepend(block);
+      while (feed.children.length > 6) feed.removeChild(feed.lastChild);
+      const cards = [
+        ["Banks", summary.banks_analyzed],
+        ["Material", summary.material_changes],
+        ["Validated", summary.validation_passed],
+        ["Failed checks", summary.validation_failed],
+        ["Pending", summary.pending_review],
+        ["Approved", summary.approved],
+      ];
+      document.getElementById("kpis").innerHTML = cards.map(([label, value]) =>
+        `<div class="kpi"><span>${label}</span><strong>${value}</strong></div>`).join("");
+
+      const pcts = changes.map((c) => c.live_pct ?? c.percentage_change);
+      draw("changeChart", {
+        type: "bar",
+        data: {
+          labels: changes.map((c) => c.ticker + " · " + c.metric),
+          datasets: [{
+            label: "Live % change",
+            data: pcts,
+            backgroundColor: pcts.map((v) => (v < 0 ? "#c0392b" : "#0c2340")),
+            borderRadius: 6,
+          }],
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 400 },
+          plugins: { legend: { display: false } },
+          scales: { x: { ticks: { callback: (v) => v + "%" } } },
+        },
+      });
+
+      draw("statusChart", {
+        type: "doughnut",
+        data: {
+          labels: ["Pending", "Approved", "Rejected", "Failed validation"],
+          datasets: [{
+            data: [summary.pending_review, summary.approved, summary.rejected, summary.validation_failed],
+            backgroundColor: ["#c4a35a", "#157a45", "#8d99a6", "#c0392b"],
+            borderWidth: 0,
+          }],
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: "62%", animation: { duration: 400 } },
+      });
+
+      const rows = changes.map((c) => {
+        const livePct = c.live_pct ?? c.percentage_change;
+        const cls = livePct < 0 ? "neg" : "pos";
+        const actions = c.explanation_id && c.approval_status === "PENDING" && c.validation_status === "PASSED"
+          ? `<button class="small" data-act="approve" data-id="${c.explanation_id}">Approve</button>
+             <button class="small danger" data-act="reject" data-id="${c.explanation_id}">Reject</button>`
+          : "";
+        return `<tr>
+          <td>${esc(c.bank)}<br><span class="tag">${esc(c.ticker)}</span></td>
+          <td>${esc(c.metric)}<br><span class="tag">${esc(c.previous_period)} → ${esc(c.current_period)}</span></td>
+          <td class="num">${money(c.previous_value)}</td>
+          <td class="num">${money(c.live_value)}<br><span class="tag">close ${money(c.current_value)}</span></td>
+          <td class="num ${cls}">${money(c.live_delta)}<br>${pct(livePct)}</td>
+          <td class="explain">${esc(c.ai_explanation)}</td>
+          <td>${esc(c.validation_status)}<br><span class="tag">${esc(c.approval_status)}</span><br>${actions}</td>
+        </tr>`;
+      }).join("");
+      document.getElementById("table-wrap").innerHTML = `<table>
+        <thead><tr><th>Bank</th><th>Metric</th><th class="num">Previous</th><th class="num">Live mark</th><th class="num">Live change</th><th>Explanation</th><th>Status</th></tr></thead>
+        <tbody>${rows}</tbody></table>`;
+      document.getElementById("table-wrap").querySelectorAll("button[data-act]").forEach((btn) => {
+        btn.onclick = () => review(btn.dataset.act, btn.dataset.id);
+      });
+
+      const select = document.getElementById("bank");
+      const current = select.value;
+      if (!select.options.length) {
+        select.innerHTML = (payload.banks || []).map((b) => `<option value="${b.id}">${b.name}</option>`).join("");
+        if ((payload.banks || []).some((b) => b.id === 3)) select.value = "3";
+      } else if (current) {
+        select.value = current;
+      }
+      drawWaterfall();
+    }
+
+    function drawWaterfall() {
+      if (!latest) return;
+      const id = document.getElementById("bank").value;
+      const deltas = (latest.waterfalls && latest.waterfalls[id]) || [];
+      draw("waterfallChart", {
+        type: "bar",
+        data: {
+          labels: deltas.map((s) => s.label),
+          datasets: [{
+            label: "Live dollar change",
+            data: deltas.map((s) => s.value),
+            backgroundColor: deltas.map((s) => (s.value < 0 ? "#c0392b" : "#1f4e79")),
+            borderRadius: 6,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 400 },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => money(ctx.raw) } },
+          },
+          scales: { y: { ticks: { callback: (v) => money(v) } } },
+        },
+      });
+    }
+
+    async function review(action, id) {
+      const response = await fetch("/api/explanations/" + id + "/" + action, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewer: "analyst@localhost", comment: action + " from local dashboard" }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        document.getElementById("status").textContent = body.detail || "Review failed";
+        document.getElementById("status").className = "error";
+        return;
+      }
+    }
+
+    document.getElementById("bank").onchange = drawWaterfall;
+    const source = new EventSource("/api/dashboard/stream");
+    source.onmessage = (event) => render(JSON.parse(event.data));
+    source.onerror = () => {
+      document.getElementById("live-label").textContent = "Reconnecting";
+    };
+  </script>
+</body>
+</html>
